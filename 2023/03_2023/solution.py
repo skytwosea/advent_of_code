@@ -11,7 +11,7 @@ GEAR = "*"
 
 
 @dataclass
-class SymbolElement():
+class SymbolElement:
     col: int
     row: int
     by: int = 0
@@ -23,18 +23,21 @@ class SymbolElement():
     def get_tuple(self):
         return (self.col, self.row)
 
+
 @dataclass(frozen=True)  # make it immutable so that it is default-hashable
-class NumberElement():
+class NumberElement:
     value: int
     length: int
     anchor_col: int
     anchor_row: int
 
+
 @dataclass(frozen=True)
-class ParsedLine():
+class ParsedLine:
     number_elements: set[NumberElement]
     symbols: set[SymbolElement]
     gears: set[SymbolElement]
+
 
 @dataclass
 class Results:
@@ -42,7 +45,9 @@ class Results:
     part_2: int
 
 
-def generate_halo(obj: NumberElement, max_cols: int, max_rows: int) -> set[tuple[int, int]]:
+def generate_halo(
+    obj: NumberElement, max_cols: int, max_rows: int
+) -> set[tuple[int, int]]:
     """Generate the set of all coordinates that surround a number element's position
 
     Halo coordinates are all grid positions that directly touch the number, e.g.
@@ -89,9 +94,12 @@ def generate_halo(obj: NumberElement, max_cols: int, max_rows: int) -> set[tuple
             halo.add((j, i))
 
     # generate mask of number's coordinates
-    mask = {(i, obj.anchor_row) for i in range(obj.anchor_col, obj.anchor_col + obj.length)}
+    mask = {
+        (i, obj.anchor_row) for i in range(obj.anchor_col, obj.anchor_col + obj.length)
+    }
 
     return halo.difference(mask)
+
 
 def parse_line(line: str, row: int) -> ParsedLine:
     record_on = False
@@ -110,38 +118,25 @@ def parse_line(line: str, row: int) -> ParsedLine:
             record_on = False
             number_elements.add(
                 NumberElement(
-                    value = int("".join(value_builder)),
-                    length = len(value_builder),
-                    anchor_col = anchor_col,
-                    anchor_row = row
+                    value=int("".join(value_builder)),
+                    length=len(value_builder),
+                    anchor_col=anchor_col,
+                    anchor_row=row,
                 )
             )
             value_builder = []
         if char in SYMBOLS:
-            symbols.add(
-                SymbolElement(
-                    col = col,
-                    row = row
-                )
-            )
+            symbols.add(SymbolElement(col=col, row=row))
         if char in GEAR:
-            gears.add(
-                SymbolElement(
-                    col = col,
-                    row = row
-                )
-            )
-    return ParsedLine(
-        number_elements = number_elements,
-        symbols = symbols,
-        gears = gears
-    )
+            gears.add(SymbolElement(col=col, row=row))
+    return ParsedLine(number_elements=number_elements, symbols=symbols, gears=gears)
+
 
 def sum_numbers_with_adjacent_symbols(
     number_elements: set[NumberElement],
     symbols: set[SymbolElement],
     max_cols: int,
-    max_rows: int
+    max_rows: int,
 ) -> int:
     result = 0
     symbol_tuples = {s.get_tuple() for s in symbols}
@@ -151,11 +146,12 @@ def sum_numbers_with_adjacent_symbols(
             result += nel.value
     return result
 
+
 def sum_gear_numbers(
     number_elements: set[NumberElement],
     gears: set[SymbolElement],
     max_cols: int,
-    max_rows: int
+    max_rows: int,
 ) -> int:
     for gear in gears:
         gear_coordinate = gear.get_tuple()
@@ -164,8 +160,9 @@ def sum_gear_numbers(
             if gear_coordinate in _halo:
                 gear.by += 1
                 gear.by_products.add(nel.value)
-    _partial = {reduce(lambda x,y: x*y, g.by_products) for g in gears if g.by == 2}
-    return reduce(lambda x,y: x+y, _partial)
+    _partial = {reduce(lambda x, y: x * y, g.by_products) for g in gears if g.by == 2}
+    return reduce(lambda x, y: x + y, _partial)
+
 
 def parse_text(file: TextIO) -> Results:
     number_elements = set()
@@ -187,15 +184,19 @@ def parse_text(file: TextIO) -> Results:
         row_len += 1
 
     return Results(
-        part_1 = sum_numbers_with_adjacent_symbols(number_elements, symbols, col_len, row_len),
-        part_2 = sum_gear_numbers(number_elements, gears, col_len, row_len)
+        part_1=sum_numbers_with_adjacent_symbols(
+            number_elements, symbols, col_len, row_len
+        ),
+        part_2=sum_gear_numbers(number_elements, gears, col_len, row_len),
     )
+
 
 def main():
     file = sys.argv[1]
     with open(file, "r") as f:
         results = parse_text(f)
     print(f"part 1: {results.part_1}\npart 2: {results.part_2}")
+
 
 if __name__ == "__main__":
     main()

@@ -2,65 +2,73 @@ def _right(word, board, row, col, rmx, cmx, wln):
     if not cmx - col >= wln:
         return 0
     for i in range(1, wln):
-        if board[row][col+i] != word[i]:
+        if board[row][col + i] != word[i]:
             return 0
     return 1
+
 
 def _right_down(word, board, row, col, rmx, cmx, wln):
     if not cmx - col >= wln or not rmx - row >= wln:
         return 0
     for i in range(1, wln):
-        if board[row+i][col+i] != word[i]:
+        if board[row + i][col + i] != word[i]:
             return 0
     return 1
+
 
 def _down(word, board, row, col, rmx, cmx, wln):
     if not rmx - row >= wln:
         return 0
     for i in range(1, wln):
-        if board[row+i][col] != word[i]:
+        if board[row + i][col] != word[i]:
             return 0
     return 1
+
 
 def _down_left(word, board, row, col, rmx, cmx, wln):
-    if not col >= wln-1 or not rmx - row >= wln:
+    if not col >= wln - 1 or not rmx - row >= wln:
         return 0
     for i in range(1, wln):
-        if board[row+i][col-i] != word[i]:
+        if board[row + i][col - i] != word[i]:
             return 0
     return 1
+
 
 def _left(word, board, row, col, rmx, cmx, wln):
-    if not col >= wln-1:
+    if not col >= wln - 1:
         return 0
     for i in range(1, wln):
-        if board[row][col-i] != word[i]:
+        if board[row][col - i] != word[i]:
             return 0
     return 1
+
 
 def _left_up(word, board, row, col, rmx, cmx, wln):
-    if not col >= wln-1 or not row >= wln-1:
+    if not col >= wln - 1 or not row >= wln - 1:
         return 0
     for i in range(1, wln):
-        if board[row-i][col-i] != word[i]:
+        if board[row - i][col - i] != word[i]:
             return 0
     return 1
+
 
 def _up(word, board, row, col, rmx, cmx, wln):
-    if not row >= wln-1:
+    if not row >= wln - 1:
         return 0
     for i in range(1, wln):
-        if board[row-i][col] != word[i]:
+        if board[row - i][col] != word[i]:
             return 0
     return 1
 
+
 def _up_right(word, board, row, col, rmx, cmx, wln):
-    if not cmx - col >= wln or not row >= wln-1:
+    if not cmx - col >= wln or not row >= wln - 1:
         return 0
     for i in range(1, wln):
-        if board[row-i][col+i] != word[i]:
+        if board[row - i][col + i] != word[i]:
             return 0
     return 1
+
 
 def _check_candidates(prefix, postfix, fn, board, row, col, rmx, cmx, wln):
     if fn(prefix, board, row, col, rmx, cmx, wln) == 1:
@@ -69,12 +77,13 @@ def _check_candidates(prefix, postfix, fn, board, row, col, rmx, cmx, wln):
         return prefix
     return None
 
+
 def _check_cross(word, board, row, col):
-    rmx = len(board) # max rows
-    cmx = len(board[0]) # max cols
-    wln = (len(word)//2)+1 # keep the pivot-point in the prefix/postfix strings
-    prefix = word[:wln][::-1] # reverse the prefix to simplify indexing
-    postfix = word[wln*-1:]
+    rmx = len(board)  # max rows
+    cmx = len(board[0])  # max cols
+    wln = (len(word) // 2) + 1  # keep the pivot-point in the prefix/postfix strings
+    prefix = word[:wln][::-1]  # reverse the prefix to simplify indexing
+    postfix = word[wln * -1 :]
     # _check_candidates sees whether prefix or postfix is in the upper-left and
     # upper-right branches. It returns the value expected in each one's
     # the opposing branch, which still must be confirmed
@@ -90,6 +99,7 @@ def _check_cross(word, board, row, col):
             return 1
     return 0
 
+
 directions = [
     _right,
     _right_down,
@@ -101,14 +111,16 @@ directions = [
     _up_right,
 ]
 
+
 def _check_single(word, board, row, col):
     x_count = 0
-    rmx = len(board) # max rows
-    cmx = len(board[0]) # max cols
+    rmx = len(board)  # max rows
+    cmx = len(board[0])  # max cols
     wln = len(word)
     for dir_fn in directions:
         x_count += dir_fn(word, board, row, col, rmx, cmx, wln)
     return x_count
+
 
 def _wc(board, word, fn, idx):
     counter = 0
@@ -121,24 +133,27 @@ def _wc(board, word, fn, idx):
 
 
 def _get_data(src):
-    with open(src, 'r') as f:
+    with open(src, "r") as f:
         board = [line.strip() for line in f.readlines()]
     return board
+
 
 def word_count(src, word, fn, idx):
     board = _get_data(src)
     return _wc(board, word, fn, idx)
 
+
 def main():
     print(f"word count: {word_count("data.txt", "XMAS", _check_single, 0)}")
     print(f"word count: {word_count("data.txt", "MAS", _check_cross, 1)}")
+
 
 if __name__ == "__main__":
     main()
 
 
-
 # TESTS
+
 
 def _get_testboard():
     return [
@@ -154,9 +169,11 @@ def _get_testboard():
         "MXMXAXMASX",
     ]
 
+
 def test_check_single():
     testboard = _get_testboard()
     assert _wc(testboard, "XMAS", _check_single, 0) == 18
+
 
 def test_check_cross():
     testboard = _get_testboard()

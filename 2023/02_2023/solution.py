@@ -11,16 +11,13 @@ class ParsedValues:
     green: int = 0
     blue: int = 0
 
-LIMIT = ParsedValues(
-    red = 12,
-    green = 13,
-    blue = 14
-)
+
+LIMIT = ParsedValues(red=12, green=13, blue=14)
+
 
 def get_game_number(sequence: str) -> int:
-    return int(
-        sequence.split(" ")[-1]
-    )
+    return int(sequence.split(" ")[-1])
+
 
 def parse_draw(draw: str) -> ParsedValues:
     parsed_draw = ParsedValues()
@@ -29,22 +26,28 @@ def parse_draw(draw: str) -> ParsedValues:
         setattr(parsed_draw, _components[1], int(_components[0]))
     return parsed_draw
 
+
 def compare_draw(draw: ParsedValues) -> bool:
     for field in dataclasses.fields(draw):
         if getattr(draw, field.name) > getattr(LIMIT, field.name):
             return False
     return True
 
-def check_and_set_min_values(game_tally: ParsedValues, parsed_draw: ParsedValues) -> None:
+
+def check_and_set_min_values(
+    game_tally: ParsedValues, parsed_draw: ParsedValues
+) -> None:
     for field in dataclasses.fields(parsed_draw):
         if getattr(parsed_draw, field.name) > getattr(game_tally, field.name):
             setattr(game_tally, field.name, getattr(parsed_draw, field.name))
+
 
 def get_power_set(game_tally: ParsedValues) -> int:
     pset = 1
     for field in dataclasses.fields(game_tally):
         pset *= getattr(game_tally, field.name)
     return pset
+
 
 def parse_line(line: str) -> tuple[int, int]:
     all_components = line.split(":")
@@ -65,6 +68,7 @@ def parse_line(line: str) -> tuple[int, int]:
 
     return (game_number, power_set)
 
+
 def assess_games(file: TextIO) -> tuple[int, int]:
     game_1_result = 0
     game_2_result = 0
@@ -77,15 +81,15 @@ def assess_games(file: TextIO) -> tuple[int, int]:
         game_2_result += _parsed[1]
     return (game_1_result, game_2_result)
 
+
 def main():
     file = sys.argv[1]
     with open(file, "r") as f:
         print(assess_games(f))
 
+
 if __name__ == "__main__":
     main()
-
-
 
 
 full_test_data = """Game 1: 3 blue, 4 red; 1 red, 2 green, 6 blue; 2 green
@@ -112,6 +116,7 @@ def test_get_game_number():
         assert isinstance(get_game_number(item), int)
         assert get_game_number(item) == n + 1
 
+
 def test_parse_draw():
     draws = [
         ParsedValues(blue=3, red=4, green=0),
@@ -122,6 +127,7 @@ def test_parse_draw():
     ]
     for n, draw in enumerate(draw_test_data.split("\n")):
         assert parse_draw(draw) == draws[n]
+
 
 def test_compare_draw():
     draws = [
@@ -135,9 +141,9 @@ def test_compare_draw():
     for draw in draws:
         assert compare_draw(draw[0]) == draw[1]
 
+
 def test_assess_games():
     with StringIO(full_test_data) as tf:
         results = assess_games(tf)
         assert results[0] == 8
         assert results[1] == 2286
-

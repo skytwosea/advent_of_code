@@ -1,6 +1,7 @@
 import pytest
 from time import sleep
 import sys
+
 # import traceback
 import logging
 
@@ -11,23 +12,30 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
+
 class MapError(Exception):
     """Raised when there is no viable heading: see Guard._peek()"""
+
     pass
 
-class Guard:
 
-    _guard = '^'
-    _open = '.'
-    _blocked = '#'
-    _visited = 'x'
+class Guard:
+    _guard = "^"
+    _open = "."
+    _blocked = "#"
+    _visited = "x"
     _headings = (
         "North",
         "East",
         "South",
         "West",
     )
-    _gmarkers = ['^', '>', 'v', '<',]
+    _gmarkers = [
+        "^",
+        ">",
+        "v",
+        "<",
+    ]
     # _notouchy = ['^', '>', 'v', '<', '#',]
 
     def __init__(self, board):
@@ -124,7 +132,7 @@ class Guard:
             # the real problem is how we got into this trap
             raise MapError(f"all directions blocked at [{self.get_position()}]")
         if not _heading:
-            _heading = self.heading 
+            _heading = self.heading
         match _heading:
             case "North":
                 next_row = row - 1
@@ -164,7 +172,9 @@ class Guard:
         self.board[row][col] = gmark
 
     def _in_bounds(self, row, col):
-        return row >= 0 and row < len(self.board) and col >= 0 and col < len(self.board[0])
+        return (
+            row >= 0 and row < len(self.board) and col >= 0 and col < len(self.board[0])
+        )
 
     # def _send_probe(self, row, col, heading, display=None, unique_steps=None):
     #     required_marker = self._gmarkers[self._headings.index(heading)]
@@ -196,7 +206,7 @@ class Guard:
     #     The right-hand-side path must have a tracking marker in the correct orientation:
     #     it must be oriented 90 degrees to the right of the guard's current heading.
     #     There also cannot be an obstruction between the guard and the potential marker.
-        
+
     #     If the above conditions are met, then the cell immediately in front of the guard is an
     #     obstruction candidate. If it is not already an obstruction, we can add it to the
     #     list.
@@ -228,7 +238,7 @@ class Guard:
             if display:
                 self._print_display_window(row, col, unique_steps, delay=0.05)
             else:
-                print(f"steps: {unique_steps}", end='\r')
+                print(f"steps: {unique_steps}", end="\r")
             turn_count = self._peek(row, col)
             if turn_count is None:
                 return unique_steps
@@ -253,27 +263,36 @@ class Guard:
     #         self._turn_right(turn_count)
     #         self._step()
 
-    def _print_display_window(self, row, col, unique_steps, unique_obstructions=None, size=30, delay=1.5):
+    def _print_display_window(
+        self, row, col, unique_steps, unique_obstructions=None, size=30, delay=1.5
+    ):
         _window, _side = self._create_display_window(row, col, size)
         if unique_steps > 1:
-            print("\033[A"*(_side+4))
+            print("\033[A" * (_side + 4))
         print(_window)
-        print(f"unique steps: {unique_steps}\nunique obstructions: {unique_obstructions}\ncoordinates: {(row,col)}")
+        print(
+            f"unique steps: {unique_steps}\nunique obstructions: {unique_obstructions}\ncoordinates: {(row,col)}"
+        )
         sleep(delay)
 
     def _create_display_window(self, row, col, size):
         gmark = self._gmarkers[self._headings.index(self.heading)]
         window = []
-        for r in range(row-size, row+size+1):
-            line = [self.board[r][c] if self._in_bounds(r, c) else ' ' for c in range(col-size, col+size+1)]
-            window.append([' ' if c == '.' else c for c in line])
+        for r in range(row - size, row + size + 1):
+            line = [
+                self.board[r][c] if self._in_bounds(r, c) else " "
+                for c in range(col - size, col + size + 1)
+            ]
+            window.append([" " if c == "." else c for c in line])
         window[size][size] = f"\033[30;45m{gmark}\033[0m"
-        return ('\n'.join([' '.join(line) for line in window]), len(window))
+        return ("\n".join([" ".join(line) for line in window]), len(window))
+
 
 def _get_data(src):
-    with open(src, 'r') as f:
+    with open(src, "r") as f:
         board = [[c for c in line.strip()] for line in f.readlines()]
     return board
+
 
 def map_route(src):
     board = _get_data(src)
@@ -283,46 +302,103 @@ def map_route(src):
     if not display:
         print(f"\ntotal steps: {result}")
 
+
 def main():
     map_route("data.txt")
+
 
 if __name__ == "__main__":
     main()
 
 
-
 # TESTS
 
-@ pytest.fixture
+
+@pytest.fixture
 def testboard():
     return _get_data("test_data.txt")
 
+
 def test_get_data(testboard):
-    assert testboard[0]  == ['.','.','.','.','#','.','.','.','.','.',]
-    assert testboard[6]  == ['.','#','.','.','^','.','.','.','.','.',]
-    assert testboard[-1] == ['.','.','.','.','.','.','#','.','.','.',]
+    assert testboard[0] == [
+        ".",
+        ".",
+        ".",
+        ".",
+        "#",
+        ".",
+        ".",
+        ".",
+        ".",
+        ".",
+    ]
+    assert testboard[6] == [
+        ".",
+        "#",
+        ".",
+        ".",
+        "^",
+        ".",
+        ".",
+        ".",
+        ".",
+        ".",
+    ]
+    assert testboard[-1] == [
+        ".",
+        ".",
+        ".",
+        ".",
+        ".",
+        ".",
+        "#",
+        ".",
+        ".",
+        ".",
+    ]
+
 
 def test_find_self(testboard):
     g = Guard(testboard)
     assert g.get_position() == [6, 4]
     assert g.start_pos == [6, 4]
     with pytest.raises(ValueError, match="Guard not found!"):
-        h = Guard([['.','.','.',], ['.','.','.',], ['.','.','.',],])
+        h = Guard(
+            [
+                [
+                    ".",
+                    ".",
+                    ".",
+                ],
+                [
+                    ".",
+                    ".",
+                    ".",
+                ],
+                [
+                    ".",
+                    ".",
+                    ".",
+                ],
+            ]
+        )
+
 
 def test_guard_step(testboard):
     g = Guard(testboard)
-    g.set_position([5,5])
-    g._step() # starts out facing north
-    assert g.get_position() == [4,5]
+    g.set_position([5, 5])
+    g._step()  # starts out facing north
+    assert g.get_position() == [4, 5]
     g._turn_right()
     g._step()
-    assert g.get_position() == [4,6]
+    assert g.get_position() == [4, 6]
     g._turn_right()
     g._step()
-    assert g.get_position() == [5,6]
+    assert g.get_position() == [5, 6]
     g._turn_right()
     g._step()
-    assert g.get_position() == [5,5]
+    assert g.get_position() == [5, 5]
+
 
 def test_guard_turn_right(testboard):
     g = Guard(testboard)
@@ -340,6 +416,7 @@ def test_guard_turn_right(testboard):
     g._turn_right(7)
     assert g.get_heading() == "East"
 
+
 def test_guard_turn_left(testboard):
     g = Guard(testboard)
     assert g.get_heading() == "North"
@@ -356,6 +433,7 @@ def test_guard_turn_left(testboard):
     g._turn_left(7)
     assert g.get_heading() == "North"
 
+
 def test_guard_peek_next_heading_open(testboard):
     g = Guard(testboard)
     row, col = g.get_position()
@@ -365,45 +443,90 @@ def test_guard_peek_next_heading_open(testboard):
     row, col = g.get_position()
     assert g._peek(row, col) == 1
 
+
 def test_guard_peek_one_closed_heading():
     board_turn_twice = [
-        ['.','#','.',],
-        ['.','^','#',],
-        ['.','.','.',],
+        [
+            ".",
+            "#",
+            ".",
+        ],
+        [
+            ".",
+            "^",
+            "#",
+        ],
+        [
+            ".",
+            ".",
+            ".",
+        ],
     ]
     g = Guard(board_turn_twice)
     row, col = g.get_position()
     assert g._peek(row, col) == 2
 
+
 def test_guard_peek_two_closed_headings():
     board_turn_thrice = [
-        ['.','#','.',],
-        ['.','^','#',],
-        ['.','#','.',],
+        [
+            ".",
+            "#",
+            ".",
+        ],
+        [
+            ".",
+            "^",
+            "#",
+        ],
+        [
+            ".",
+            "#",
+            ".",
+        ],
     ]
     g = Guard(board_turn_thrice)
     row, col = g.get_position()
     assert g._peek(row, col) == 3
 
+
 def test_guard_peek_one_closed_heading():
     board_turn_fource = [
-        ['.','#','.',],
-        ['#','^','#',],
-        ['.','#','.',],
+        [
+            ".",
+            "#",
+            ".",
+        ],
+        [
+            "#",
+            "^",
+            "#",
+        ],
+        [
+            ".",
+            "#",
+            ".",
+        ],
     ]
     g = Guard(board_turn_fource)
     with pytest.raises(MapError):
         row, col = g.get_position()
         assert g._peek(row, col) == _
 
+
 def test_march_only(testboard):
     g = Guard(testboard)
     ans = g.march()
     assert ans == 41
 
+
 def test_create_display_window(testboard):
     g = Guard(testboard)
-    assert g._create_display_window(6, 4, size=3) == ("  #          \n            #\n             \n#     \033[30;45m^\033[0m      \n             \n             \n          #  ", 7)
+    assert g._create_display_window(6, 4, size=3) == (
+        "  #          \n            #\n             \n#     \033[30;45m^\033[0m      \n             \n             \n          #  ",
+        7,
+    )
+
 
 # def test_march_and_block(testboard):
 #     g = Guard(testboard)

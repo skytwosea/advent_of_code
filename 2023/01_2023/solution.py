@@ -10,16 +10,18 @@ from typing import Generator
 # combining the first digit and the last digit (in
 # that order) to form a single two-digit number.
 
+
 class SpelledNumbers(StrEnum):
-    one = "1",
-    two = "2",
-    three = "3",
-    four = "4",
-    five = "5",
-    six = "6",
-    seven = "7",
-    eight = "8",
-    nine = "9",
+    one = ("1",)
+    two = ("2",)
+    three = ("3",)
+    four = ("4",)
+    five = ("5",)
+    six = ("6",)
+    seven = ("7",)
+    eight = ("8",)
+    nine = ("9",)
+
 
 """
 _FIRST_LETTERS: first letters of the spelled
@@ -31,23 +33,27 @@ full regex check
 _FIRST_LETTERS = {"o", "t", "f", "s", "e", "n"}
 _DIGITS = set(string.digits)
 
+
 @dataclass
 class Digies:
     # data object for a given line's parsed digit values
     first: str = "0"
     last: str = "0"
 
+
 def char_check(char: str, seq: set) -> bool:
     # check if a given character is in a given sequence
     return char in seq
 
-def spelled_number_check(sequence: str) -> str|None:
+
+def spelled_number_check(sequence: str) -> str | None:
     # check if any spelled number in SpelledNumbers enum is
     # found at _beginning_ of sequence string
     for token in SpelledNumbers:
         if bool(re.match(token.name, sequence)):
             return token.value
     return None
+
 
 def check_position_for_value(position: int, obj: Digies, line: str, attr: str) -> bool:
     # do integer and spelled number checks for a given position in
@@ -93,10 +99,12 @@ def parse_file(file: str) -> Generator[int]:
         for line in f.readlines():
             yield get_digies(line.strip())
 
+
 def main():
     file = sys.argv[1]
     digies = list(parse_file(file))
     print(sum(digies))
+
 
 if __name__ == "__main__":
     main()

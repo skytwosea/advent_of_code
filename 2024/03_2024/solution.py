@@ -6,10 +6,12 @@ cond_mul_pattern = re.compile(r"(?:\A|do\(\))[\s\S]*?(?:don't\(\)|\Z)")
 # tricky: [\s\S] matches everything _and_ line terminators, whereas the
 # dot <.> matches everything _except_ line terminators
 
+
 def _get_data(src):
-    with open(src, 'r') as f:
+    with open(src, "r") as f:
         sink = f.read()
     return sink
+
 
 def _sum_multiplies(sink):
     ans = 0
@@ -17,6 +19,7 @@ def _sum_multiplies(sink):
     for item in iter(re_obj):
         ans += int(item.group(1)) * int(item.group(2))
     return ans
+
 
 def _sum_valid_multiplies(sink):
     ans = 0
@@ -30,21 +33,24 @@ def compute(src, fn):
     sink = _get_data(src)
     return fn(sink)
 
+
 def main():
     print(f"sum of multiplies: {compute("data.txt", _sum_multiplies)}")
     print(f"sum of multiplies: {compute("data.txt", _sum_valid_multiplies)}")
+
 
 if __name__ == "__main__":
     main()
 
 
-
 # TESTS
+
 
 def test_get_data():
     sink = _get_data("test_data.txt")
     assert isinstance(sink, str)
     assert len(sink) == 268
+
 
 def test_mul_capture_groups():
     test_str_a = "860)[mul(886,453))mul(168,7)"
@@ -63,6 +69,7 @@ def test_mul_capture_groups():
     second = next(re_obj_b)
     assert second.group(1) == "846"
     assert int(second.group(2)) == 234
+
 
 def test_cond_mul_capture_groups():
     test_str_a = "860)[mul(886,453))mul(168,7)"
@@ -95,9 +102,16 @@ def test_cond_mul_capture_groups():
     assert len(re_obj_e[0]) == 47
     assert len(re_obj_e[1]) == 28
 
+
 def test_sum_all_multiplies():
     sink = _get_data("test_data.txt")
-    assert _sum_multiplies(sink,) == 2226020
+    assert (
+        _sum_multiplies(
+            sink,
+        )
+        == 2226020
+    )
+
 
 def test_sum_valid_multiplies():
     sink = _get_data("test_data.txt")
