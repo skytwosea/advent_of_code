@@ -1,36 +1,6 @@
 import sys
 from pathlib import Path
-from range_splice import RangeData, HalfRangeData, convert_to_hrd, sort_rd, fill_gaps
-
-
-def test_convert_to_hrd_single_range():
-    # Simple: single inclusive range -> single half-open range
-    src = [RangeData(1, 3, 10)]
-    out = convert_to_hrd(src)
-    assert isinstance(out, list)
-    assert len(out) == 2
-    for obj in out:
-        assert isinstance(obj, HalfRangeData)
-        assert obj.data == 10
-        if obj.position == 1:
-            assert obj.end == False
-        elif obj.position == 3:
-            assert obj.end == True
-
-
-def test_convert_to_hrd_multiple_ranges_mixed():
-    # More complex: multiple ranges of varying lengths
-    src = [RangeData(0, 1, 10), RangeData(5, 7, 10), RangeData(9, 12, 10)]
-    out = convert_to_hrd(src)
-    assert isinstance(out, list)
-    assert len(out) == len(src) * 2
-    assert all(isinstance(item, HalfRangeData) for item in out)
-    for obj in out:
-        assert obj.data == 10
-        if obj.position == 9:
-            assert obj.end == False
-        if obj.position == 7:
-            assert obj.end == True
+from range_splice import RangeData, HalfRangeData, _rd_to_hrd, _sort_rd, _fill_gaps
 
 
 def test_sort_rd_basic_ordering():
@@ -40,7 +10,7 @@ def test_sort_rd_basic_ordering():
         RangeData(1, 2, "b"),
         RangeData(3, 4, "c"),
     ]
-    out = sort_rd(src)
+    out = _sort_rd(src)
 
     assert isinstance(out, list)
 
@@ -71,7 +41,7 @@ def test_sort_rd_complex_mixed_values():
     ]
     snapshot = [(r.lower, r.upper, r.data) for r in src]
 
-    out = sort_rd(src)
+    out = _sort_rd(src)
 
     # Input must remain unchanged and a new list must be returned
     assert [(r.lower, r.upper, r.data) for r in src] == snapshot
@@ -88,12 +58,12 @@ def test_sort_rd_complex_mixed_values():
 
 def test_fill_gaps_simple_prefix_and_suffix_gaps():
     # Single range strictly inside [lb, ub] should create:
-    # - a leading gap from lb to first.upper (note: uses upper per implementation)
+    # - a leading gap from lb to first.lower
     # - a trailing gap from last.upper to ub
     src = [RangeData(2, 4, "x")]
     snapshot = [(r.lower, r.upper, r.data) for r in src]
 
-    out = fill_gaps(src, lb=0, ub=10, neutral_attr=0)
+    out = _fill_gaps(src, lb=0, ub=10, neutral_attr=0)
 
     # Input must remain unchanged and a new list must be returned
     assert [(r.lower, r.upper, r.data) for r in src] == snapshot
@@ -101,21 +71,16 @@ def test_fill_gaps_simple_prefix_and_suffix_gaps():
 
     # Expect two gap ranges and the original one; sorted by lower
     assert [(r.lower, r.upper, r.data) for r in out] == [
-        (0, 4, 0),   # leading gap uses first.upper
+        (0, 2, 0),   # leading gap uses first.lower
         (2, 4, "x"), # original
         (4, 10, 0),  # trailing gap from last.upper to ub
     ]
-
-    # All gap objects must use the neutral attribute
-    for r in out:
-        if r.data == 0:
-            assert r.data == 0
 
 
 def test_fill_gaps_complex_multiple_internal_and_bounds():
     # Mixed ranges with negatives, zero-length, and unsorted input.
     # Should:
-    # - add a leading gap from lb to first.upper
+    # - add a leading gap from lb to first.lower
     # - add internal gaps where rd.upper < next.lower
     # - add a trailing gap from last.upper to ub
     src = [
@@ -127,7 +92,7 @@ def test_fill_gaps_complex_multiple_internal_and_bounds():
     snapshot = [(r.lower, r.upper, r.data) for r in src]
 
     lb, ub, neutral = -10, 20, 0
-    out = fill_gaps(src, lb=lb, ub=ub, neutral_attr=neutral)
+    out = _fill_gaps(src, lb=lb, ub=ub, neutral_attr=neutral)
 
     # Input must remain unchanged and a new list must be returned
     assert [(r.lower, r.upper, r.data) for r in src] == snapshot
@@ -135,7 +100,7 @@ def test_fill_gaps_complex_multiple_internal_and_bounds():
 
     # Expected ranges after filling, sorted by lower (stable for ties at 12)
     expected = [
-        (-10, 0, 0),   # leading gap uses first.upper (0)
+        (-10, -3, 0),   # leading gap uses first.upper (0)
         (-3, 0, "b"),
         (0, 5, 0),     # internal gap between [-3,0] and [5,7]
         (5, 7, "a"),
@@ -153,3 +118,33 @@ def test_fill_gaps_complex_multiple_internal_and_bounds():
             assert originals[(r.lower, r.upper, r.data)] is r
         else:
             assert r.data == neutral
+
+
+def test_rd_to_hrd_single_range():
+    # Simple: single inclusive range -> single half-open range
+    src = [RangeData(1, 3, 10)]
+    out = _rd_to_hrd(src)
+    assert isinstance(out, list)
+    assert len(out) == 2
+    for obj in out:
+        assert isinstance(obj, HalfRangeData)
+        assert obj.data == 10
+        if obj.position == 1:
+            assert obj.end == False
+        elif obj.position == 3:
+            assert obj.end == True
+
+
+def test_rd_to_hrd_multiple_ranges_mixed():
+    # More complex: multiple ranges of varying lengths
+    src = [RangeData(0, 1, 10), RangeData(5, 7, 10), RangeData(9, 12, 10)]
+    out = _rd_to_hrd(src)
+    assert isinstance(out, list)
+    assert len(out) == len(src) * 2
+    assert all(isinstance(item, HalfRangeData) for item in out)
+    for obj in out:
+        assert obj.data == 10
+        if obj.position == 9:
+            assert obj.end == False
+        if obj.position == 7:
+            assert obj.end == True
