@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-from range_splice import RangeData, HalfRangeData, convert_to_hrd, sort_rd
+from range_splice import RangeData, HalfRangeData, convert_to_hrd, sort_rd, fill_gaps
 
 
 def test_convert_to_hrd_single_range():
@@ -84,3 +84,72 @@ def test_sort_rd_complex_mixed_values():
     original_by_key = {(r.lower, r.data): r for r in src}
     for r in out:
         assert original_by_key[(r.lower, r.data)] is r
+
+
+def test_fill_gaps_simple_prefix_and_suffix_gaps():
+    # Single range strictly inside [lb, ub] should create:
+    # - a leading gap from lb to first.upper (note: uses upper per implementation)
+    # - a trailing gap from last.upper to ub
+    src = [RangeData(2, 4, "x")]
+    snapshot = [(r.lower, r.upper, r.data) for r in src]
+
+    out = fill_gaps(src, lb=0, ub=10, neutral_attr=0)
+
+    # Input must remain unchanged and a new list must be returned
+    assert [(r.lower, r.upper, r.data) for r in src] == snapshot
+    assert out is not src
+
+    # Expect two gap ranges and the original one; sorted by lower
+    assert [(r.lower, r.upper, r.data) for r in out] == [
+        (0, 4, 0),   # leading gap uses first.upper
+        (2, 4, "x"), # original
+        (4, 10, 0),  # trailing gap from last.upper to ub
+    ]
+
+    # All gap objects must use the neutral attribute
+    for r in out:
+        if r.data == 0:
+            assert r.data == 0
+
+
+def test_fill_gaps_complex_multiple_internal_and_bounds():
+    # Mixed ranges with negatives, zero-length, and unsorted input.
+    # Should:
+    # - add a leading gap from lb to first.upper
+    # - add internal gaps where rd.upper < next.lower
+    # - add a trailing gap from last.upper to ub
+    src = [
+        RangeData(5, 7, "a"),
+        RangeData(12, 12, "z"),   # zero-length range at 12
+        RangeData(-3, 0, "b"),
+        RangeData(10, 12, "c"),
+    ]
+    snapshot = [(r.lower, r.upper, r.data) for r in src]
+
+    lb, ub, neutral = -10, 20, 0
+    out = fill_gaps(src, lb=lb, ub=ub, neutral_attr=neutral)
+
+    # Input must remain unchanged and a new list must be returned
+    assert [(r.lower, r.upper, r.data) for r in src] == snapshot
+    assert out is not src
+
+    # Expected ranges after filling, sorted by lower (stable for ties at 12)
+    expected = [
+        (-10, 0, 0),   # leading gap uses first.upper (0)
+        (-3, 0, "b"),
+        (0, 5, 0),     # internal gap between [-3,0] and [5,7]
+        (5, 7, "a"),
+        (7, 10, 0),    # internal gap between [5,7] and [10,12]
+        (10, 12, "c"),
+        (12, 12, "z"),
+        (12, 20, 0),   # trailing gap from last.upper to ub
+    ]
+    assert [(r.lower, r.upper, r.data) for r in out] == expected
+
+    # Verify all gap objects carry the neutral attribute and originals preserved by identity
+    originals = {(r.lower, r.upper, r.data): r for r in src}
+    for r in out:
+        if (r.lower, r.upper, r.data) in originals:
+            assert originals[(r.lower, r.upper, r.data)] is r
+        else:
+            assert r.data == neutral
