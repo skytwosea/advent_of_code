@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 import pytest
-from range_splice import RangeData, HalfRangeData, _rd_to_hrd, _sort_rd, _fill_gaps, _get_minmax_bounds_rd, prep_and_convert
+from range_splice import RangeData, HalfRangeData, _rd_to_hrd, _sort_rd, _sort_hrd, _fill_gaps, _get_minmax_bounds_rd, prep_and_convert
 
 
 def test_get_minmax_bounds_rd_simple():
@@ -149,6 +149,66 @@ def test_fill_gaps_complex_multiple_internal_and_bounds():
             assert r.data == neutral
 
 
+def test_sort_hrd_basic_ordering():
+    # Simple: ordering by position ascending
+    src = [
+        HalfRangeData(position=5, data="x", end=True),
+        HalfRangeData(position=1, data="a", end=False),
+        HalfRangeData(position=3, data="b", end=True),
+    ]
+    snapshot = [(h.position, h.data, h.end) for h in src]
+
+    out = _sort_hrd(src)
+
+    # Should not mutate input and should return new list
+    assert [(h.position, h.data, h.end) for h in src] == snapshot
+    assert out is not src
+
+    # Sorted strictly by position
+    assert [h.position for h in out] == [1, 3, 5]
+    # Ensure the full objects are in expected order
+    assert [(h.position, h.data, h.end) for h in out] == [
+        (1, "a", False),
+        (3, "b", True),
+        (5, "x", True),
+    ]
+
+
+def test_sort_hrd_complex_tie_break_on_end_flag():
+    # Complex: includes ties on position; end=False should come before end=True
+    src = [
+        HalfRangeData(position=5, data="A_end", end=True),
+        HalfRangeData(position=5, data="A_start", end=False),
+        HalfRangeData(position=-1, data="B_end", end=True),
+        HalfRangeData(position=-1, data="B_start", end=False),
+        HalfRangeData(position=0, data="C_end", end=True),
+        HalfRangeData(position=0, data="C_start", end=False),
+    ]
+    snapshot = list(src)
+
+    out = _sort_hrd(src)
+
+    # Input must remain unchanged and a new list must be returned
+    assert src == snapshot and all(a is b for a, b in zip(src, snapshot))
+    assert out is not src
+
+    # Expected order: by position, then by end flag (False before True)
+    expected = [
+        (-1, "B_start", False),
+        (-1, "B_end", True),
+        (0, "C_start", False),
+        (0, "C_end", True),
+        (5, "A_start", False),
+        (5, "A_end", True),
+    ]
+    assert [(h.position, h.data, h.end) for h in out] == expected
+
+    # Ensure identities are preserved (no new objects created)
+    originals = {(h.position, h.data, h.end): h for h in src}
+    for h in out:
+        assert originals[(h.position, h.data, h.end)] is h
+
+
 def test_rd_to_hrd_single_range():
     # Simple: single inclusive range -> single half-open range
     src = [RangeData(1, 3, 10)]
@@ -221,3 +281,16 @@ def test_rd_to_hrd_multiple_ranges_mixed():
 #     # Compare via a projection to simple tuples for robustness
 #     proj = lambda seq: [(h.position, h.data, h.end) for h in seq]
 #     assert proj(out) == proj(expected)
+
+# Notes on prep_and_convert tests and xfail rationale:
+# The prep_and_convert implementation in range_splice.py is currently incorrect:
+# 1) It calls _get_minmax_bounds_rd(l1, l2), but _get_minmax_bounds_rd accepts a single list.
+#    Passing two arguments will raise a TypeError. It should compute bounds over the merged input,
+#    e.g. _get_minmax_bounds_rd(l1 + l2), or compute lb/ub separately.
+# 2) It then calls _fill_gaps(l1) and _fill_gaps(l2) without the required parameters
+#    (lb, ub, neutral_attr). The signature is _fill_gaps(input, lb, ub, neutral_attr),
+#    so omitting these will also raise a TypeError.
+# Because of these issues, tests that exercise prep_and_convert are expected to fail by exception.
+# They were marked with xfail to document the intended behavior and avoid hard failures until
+# prep_and_convert is fixed to (a) correctly compute the global bounds and (b) pass lb, ub,
+# and neutral_attr into _fill_gaps before converting with _rd_to_hrd.
