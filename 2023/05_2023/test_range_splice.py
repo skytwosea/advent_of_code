@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
-from range_splice import RangeData, HalfRangeData, _rd_to_hrd, _sort_rd, _fill_gaps
+import pytest
+from range_splice import RangeData, HalfRangeData, _rd_to_hrd, _sort_rd, _fill_gaps, _get_minmax_bounds_rd, prep_and_convert
 
 
 def test_sort_rd_basic_ordering():
@@ -148,3 +149,75 @@ def test_rd_to_hrd_multiple_ranges_mixed():
             assert obj.end == False
         if obj.position == 7:
             assert obj.end == True
+
+
+def test_get_minmax_bounds_simple():
+    # Expect lowest to be the minimum lower, highest to be the maximum upper
+    src = [
+        RangeData(2, 3, "a"),
+        RangeData(0, 1, "b"),
+        RangeData(5, 8, "c"),
+    ]
+    # NOTE: Current implementation of _get_minmax_bounds_rd appears buggy:
+    # it constructs namedtuple("lowest", "highest") and then tries to pass two values,
+    # which will raise at runtime. This test encodes the intended behavior.
+    mm = _get_minmax_bounds_rd(src)
+    assert tuple(mm) == (0, 8)
+
+
+def test_get_minmax_bounds_complex_overlaps_and_points():
+    # Mixed negatives, zero-length ranges, and overlaps
+    src = [
+        RangeData(5, 5, "p1"),      # zero-length at 5
+        RangeData(-10, -5, "neg"),
+        RangeData(-3, 0, "span1"),
+        RangeData(0, 10, "span2"),
+    ]
+    # Intended: lowest = -10, highest = 10
+    mm = _get_minmax_bounds_rd(src)
+    assert mm[0] == -10
+    assert mm[1] == 10
+
+
+@pytest.mark.xfail(raises=Exception, reason="prep_and_convert implementation passes wrong args and omits required params")
+def test_prep_and_convert_simple_lists():
+    # Intended behavior: compute global [lb, ub],
+    # fill each list with neutral_attr=0, merge, convert to HalfRangeData.
+    l1 = [RangeData(2, 4, 1)]
+    l2 = [RangeData(5, 6, 2)]
+
+    lb = min(r.lower for r in l1 + l2)
+    ub = max(r.upper for r in l1 + l2)
+    expected_rd = _fill_gaps(l1, lb=lb, ub=ub, neutral_attr=0) + _fill_gaps(
+        l2, lb=lb, ub=ub, neutral_attr=0
+    )
+    expected_hrd = _rd_to_hrd(expected_rd)
+
+    out = prep_and_convert(l1, l2)
+    assert isinstance(out, list)
+    assert [(h.position, h.data, h.end) for h in out] == [
+        (h.position, h.data, h.end) for h in expected_hrd
+    ]
+
+
+@pytest.mark.xfail(raises=Exception, reason="prep_and_convert implementation passes wrong args and omits required params")
+def test_prep_and_convert_complex_negatives_zero_length_and_overlaps():
+    l1 = [
+        RangeData(-2, 1, "A"),
+        RangeData(3, 3, "A0"),  # zero-length at 3
+    ]
+    l2 = [
+        RangeData(-5, -3, "B"),
+        RangeData(0, 4, "B2"),
+    ]
+
+    lb = min(r.lower for r in l1 + l2)
+    ub = max(r.upper for r in l1 + l2)
+    l1_filled = _fill_gaps(l1, lb=lb, ub=ub, neutral_attr=0)
+    l2_filled = _fill_gaps(l2, lb=lb, ub=ub, neutral_attr=0)
+    expected = _rd_to_hrd(l1_filled + l2_filled)
+
+    out = prep_and_convert(l1, l2)
+    # Compare via a projection to simple tuples for robustness
+    proj = lambda seq: [(h.position, h.data, h.end) for h in seq]
+    assert proj(out) == proj(expected)
