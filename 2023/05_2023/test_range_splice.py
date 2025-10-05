@@ -1,7 +1,13 @@
-import sys
-from pathlib import Path
-import pytest
-from range_splice import RangeData, HalfRangeData, _rd_to_hrd, _sort_rd, _sort_hrd, _fill_gaps, _get_minmax_bounds_rd, prep_and_convert
+from range_splice import (
+    RangeData,
+    HalfRangeData,
+    _rd_to_hrd,
+    _sort_rd,
+    _sort_hrd,
+    _fill_gaps,
+    _get_minmax_bounds_rd,
+    splice_ranges,
+)
 
 
 def test_get_minmax_bounds_rd_simple():
@@ -15,6 +21,8 @@ def test_get_minmax_bounds_rd_simple():
     # it constructs namedtuple("lowest", "highest") and then tries to pass two values,
     # which will raise at runtime. This test encodes the intended behavior.
     mm = _get_minmax_bounds_rd(src)
+    assert mm.lowest == 0
+    assert mm.highest == 8
     assert tuple(mm) == (0, 8)
 
 
@@ -28,8 +36,9 @@ def test_get_minmax_bounds_rd_complex_overlaps_and_points():
     ]
     # Intended: lowest = -10, highest = 10
     mm = _get_minmax_bounds_rd(src)
-    assert mm[0] == -10
-    assert mm[1] == 10
+    assert mm.lowest == -10
+    assert mm.highest == 10
+    assert tuple(mm) == (-10, 10)
 
 
 def test_sort_rd_basic_ordering():
@@ -92,7 +101,7 @@ def test_fill_gaps_simple_prefix_and_suffix_gaps():
     src = [RangeData(2, 4, "x")]
     snapshot = [(r.lower, r.upper, r.data) for r in src]
 
-    out = _fill_gaps(src, lb=0, ub=10, neutral_attr=0)
+    out = _fill_gaps(src, lb=0, ub=10, neutral_attr="")
 
     # Input must remain unchanged and a new list must be returned
     assert [(r.lower, r.upper, r.data) for r in src] == snapshot
@@ -100,9 +109,9 @@ def test_fill_gaps_simple_prefix_and_suffix_gaps():
 
     # Expect two gap ranges and the original one; sorted by lower
     assert [(r.lower, r.upper, r.data) for r in out] == [
-        (0, 2, 0),   # leading gap uses first.lower
+        (0, 2, ""),   # leading gap uses first.lower
         (2, 4, "x"), # original
-        (4, 10, 0),  # trailing gap from last.upper to ub
+        (4, 10, ""),  # trailing gap from last.upper to ub
     ]
 
 
@@ -120,7 +129,7 @@ def test_fill_gaps_complex_multiple_internal_and_bounds():
     ]
     snapshot = [(r.lower, r.upper, r.data) for r in src]
 
-    lb, ub, neutral = -10, 20, 0
+    lb, ub, neutral = -10, 20, ""
     out = _fill_gaps(src, lb=lb, ub=ub, neutral_attr=neutral)
 
     # Input must remain unchanged and a new list must be returned
@@ -129,14 +138,14 @@ def test_fill_gaps_complex_multiple_internal_and_bounds():
 
     # Expected ranges after filling, sorted by lower (stable for ties at 12)
     expected = [
-        (-10, -3, 0),   # leading gap uses first.upper (0)
+        (-10, -3, ""),   # leading gap uses first.upper (0)
         (-3, 0, "b"),
-        (0, 5, 0),     # internal gap between [-3,0] and [5,7]
+        (0, 5, ""),     # internal gap between [-3,0] and [5,7]
         (5, 7, "a"),
-        (7, 10, 0),    # internal gap between [5,7] and [10,12]
+        (7, 10, ""),    # internal gap between [5,7] and [10,12]
         (10, 12, "c"),
         (12, 12, "z"),
-        (12, 20, 0),   # trailing gap from last.upper to ub
+        (12, 20, ""),   # trailing gap from last.upper to ub
     ]
     assert [(r.lower, r.upper, r.data) for r in out] == expected
 
@@ -184,12 +193,12 @@ def test_sort_hrd_complex_tie_break_on_end_flag():
         HalfRangeData(position=0, data="C_end", end=True),
         HalfRangeData(position=0, data="C_start", end=False),
     ]
-    snapshot = list(src)
+    snapshot = [(h.position, h.data, h.end) for h in src]
 
     out = _sort_hrd(src)
 
     # Input must remain unchanged and a new list must be returned
-    assert src == snapshot and all(a is b for a, b in zip(src, snapshot))
+    assert [(h.position, h.data, h.end) for h in src] == snapshot
     assert out is not src
 
     # Expected order: by position, then by end flag (False before True)
@@ -239,58 +248,45 @@ def test_rd_to_hrd_multiple_ranges_mixed():
             assert obj.end == True
 
 
-# @pytest.mark.xfail(raises=Exception, reason="prep_and_convert implementation passes wrong args and omits required params")
-# def test_prep_and_convert_simple_lists():
-#     # Intended behavior: compute global [lb, ub],
-#     # fill each list with neutral_attr=0, merge, convert to HalfRangeData.
-#     l1 = [RangeData(2, 4, 1)]
-#     l2 = [RangeData(5, 6, 2)]
+def testsplice_ranges_simple_lists():
+    l1 = [RangeData(2, 4, 1)]
+    l2 = [RangeData(5, 6, 2)]
 
-#     lb = min(r.lower for r in l1 + l2)
-#     ub = max(r.upper for r in l1 + l2)
-#     expected_rd = _fill_gaps(l1, lb=lb, ub=ub, neutral_attr=0) + _fill_gaps(
-#         l2, lb=lb, ub=ub, neutral_attr=0
-#     )
-#     expected_hrd = _rd_to_hrd(expected_rd)
+    lb = min(r.lower for r in l1 + l2)
+    ub = max(r.upper for r in l1 + l2)
+    na = 0
 
-#     out = prep_and_convert(l1, l2)
-#     assert isinstance(out, list)
-#     assert [(h.position, h.data, h.end) for h in out] == [
-#         (h.position, h.data, h.end) for h in expected_hrd
-#     ]
+    l1_filled = _fill_gaps(l1, lb=lb, ub=ub, neutral_attr=na)
+    l2_filled = _fill_gaps(l2, lb=lb, ub=ub, neutral_attr=na)
+    expected = _rd_to_hrd(l1_filled + l2_filled)
+
+    out = splice_ranges(l1, l2, 0)
+    assert isinstance(out, list)
+    # Compare via a projection to simple tuples for robustness
+    proj = lambda seq: [(h.position, h.data, h.end) for h in seq]
+    assert proj(out) == proj(expected)
 
 
-# @pytest.mark.xfail(raises=Exception, reason="prep_and_convert implementation passes wrong args and omits required params")
-# def test_prep_and_convert_complex_negatives_zero_length_and_overlaps():
-#     l1 = [
-#         RangeData(-2, 1, "A"),
-#         RangeData(3, 3, "A0"),  # zero-length at 3
-#     ]
-#     l2 = [
-#         RangeData(-5, -3, "B"),
-#         RangeData(0, 4, "B2"),
-#     ]
+def test_prep_and_convert_complex_negatives_zero_length_and_overlaps():
+    l1 = [
+        RangeData(-2, 1, "A"),
+        RangeData(3, 3, "A0"),  # zero-length at 3
+    ]
+    l2 = [
+        RangeData(-5, -3, "B"),
+        RangeData(0, 4, "B2"),
+    ]
 
-#     lb = min(r.lower for r in l1 + l2)
-#     ub = max(r.upper for r in l1 + l2)
-#     l1_filled = _fill_gaps(l1, lb=lb, ub=ub, neutral_attr=0)
-#     l2_filled = _fill_gaps(l2, lb=lb, ub=ub, neutral_attr=0)
-#     expected = _rd_to_hrd(l1_filled + l2_filled)
+    lb = min(r.lower for r in l1 + l2)
+    ub = max(r.upper for r in l1 + l2)
+    na = ""
+    
+    l1_filled = _fill_gaps(l1, lb=lb, ub=ub, neutral_attr=na)
+    l2_filled = _fill_gaps(l2, lb=lb, ub=ub, neutral_attr=na)
+    expected = _rd_to_hrd(l1_filled + l2_filled)
 
-#     out = prep_and_convert(l1, l2)
-#     # Compare via a projection to simple tuples for robustness
-#     proj = lambda seq: [(h.position, h.data, h.end) for h in seq]
-#     assert proj(out) == proj(expected)
-
-# Notes on prep_and_convert tests and xfail rationale:
-# The prep_and_convert implementation in range_splice.py is currently incorrect:
-# 1) It calls _get_minmax_bounds_rd(l1, l2), but _get_minmax_bounds_rd accepts a single list.
-#    Passing two arguments will raise a TypeError. It should compute bounds over the merged input,
-#    e.g. _get_minmax_bounds_rd(l1 + l2), or compute lb/ub separately.
-# 2) It then calls _fill_gaps(l1) and _fill_gaps(l2) without the required parameters
-#    (lb, ub, neutral_attr). The signature is _fill_gaps(input, lb, ub, neutral_attr),
-#    so omitting these will also raise a TypeError.
-# Because of these issues, tests that exercise prep_and_convert are expected to fail by exception.
-# They were marked with xfail to document the intended behavior and avoid hard failures until
-# prep_and_convert is fixed to (a) correctly compute the global bounds and (b) pass lb, ub,
-# and neutral_attr into _fill_gaps before converting with _rd_to_hrd.
+    out = splice_ranges(l1, l2, "")
+    assert isinstance(out, list)
+    # Compare via a projection to simple tuples for robustness
+    proj = lambda seq: [(h.position, h.data, h.end) for h in seq]
+    assert proj(out) == proj(expected)
