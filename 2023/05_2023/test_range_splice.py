@@ -322,6 +322,7 @@ def test_generate_ranges_from_hrd_sequence_tied_positions_and_trailing_gap():
     expected = [
         (0, 5, 1),  # seeded from first item's data after sort
         (5, 7, 8),  # 1 + 3 + 4 after the tie at position 5
+        (7, 10, 8), # final interval now included by the updated loop bounds
     ]
     assert [(r.lower, r.upper, r.data) for r in out] == expected
 
@@ -330,6 +331,5 @@ def test_generate_ranges_from_hrd_sequence_tied_positions_and_trailing_gap():
     #   making outcomes depend on sort order.
     # - The 'end' flag is ignored; the combiner function is applied identically for starts and ends,
     #   so attributes cannot be removed on end events.
-    # - The loop bounds skip the final interval (e.g., 7 -> 10 in this test), so trailing segments are dropped.
     # - DATA is only updated when two consecutive items share the exact same position; transitions at
     #   distinct positions do not adjust DATA, which is likely not the intended splice semantics.
