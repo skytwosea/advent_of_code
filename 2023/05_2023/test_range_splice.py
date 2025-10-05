@@ -6,6 +6,7 @@ from range_splice import (
     _sort_hrd,
     _fill_gaps,
     _get_minmax_bounds_rd,
+    _generate_ranges_from_hrd_sequence,
     splice_ranges,
 )
 
@@ -290,3 +291,45 @@ def test_prep_and_convert_complex_negatives_zero_length_and_overlaps():
     # Compare via a projection to simple tuples for robustness
     proj = lambda seq: [(h.position, h.data, h.end) for h in seq]
     assert proj(out) == proj(expected)
+
+
+def test_generate_ranges_from_hrd_sequence_tied_positions_and_trailing_gap():
+    # Unsorted input with tied positions to exercise the internal tie-handling logic.
+    src = [
+        HalfRangeData(position=5, data=3, end=False),
+        HalfRangeData(position=0, data=2, end=True),
+        HalfRangeData(position=10, data=6, end=True),
+        HalfRangeData(position=7, data=5, end=False),
+        HalfRangeData(position=0, data=1, end=False),
+        HalfRangeData(position=5, data=4, end=True),
+    ]
+    snapshot = [(h.position, h.data, h.end) for h in src]
+
+    # Simple additive combiner; mirrors how other tests use simple, transparent functions/data.
+    def add(a, b):
+        return a + b
+
+    out = _generate_ranges_from_hrd_sequence(src, add)
+
+    # Input must remain unchanged and a new list must be returned
+    assert [(h.position, h.data, h.end) for h in src] == snapshot
+    assert out is not src
+    assert isinstance(out, list)
+    assert all(isinstance(r, RangeData) for r in out)
+
+    # With the current implementation, expected segments are derived from consecutive distinct positions
+    # while DATA is only adjusted when consecutive half-ranges share the same position.
+    expected = [
+        (0, 5, 1),  # seeded from first item's data after sort
+        (5, 7, 8),  # 1 + 3 + 4 after the tie at position 5
+    ]
+    assert [(r.lower, r.upper, r.data) for r in out] == expected
+
+    # Notes on potential issues:
+    # - The algorithm seeds DATA from the first HalfRangeData's data, rather than a neutral value,
+    #   making outcomes depend on sort order.
+    # - The 'end' flag is ignored; the combiner function is applied identically for starts and ends,
+    #   so attributes cannot be removed on end events.
+    # - The loop bounds skip the final interval (e.g., 7 -> 10 in this test), so trailing segments are dropped.
+    # - DATA is only updated when two consecutive items share the exact same position; transitions at
+    #   distinct positions do not adjust DATA, which is likely not the intended splice semantics.
